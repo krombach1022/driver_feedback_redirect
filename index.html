@@ -143,7 +143,7 @@
   // 4. Max distance (miles) a driver can be from a facility and still get
   //    auto-matched. Beyond this we still send their coordinates but mark
   //    the facility as "UNMATCHED" so you can review it.
-  const MATCH_RADIUS_MILES = 2000;
+  const MATCH_RADIUS_MILES = 5;
 
   /* ============================================================
      LOGIC  —  no edits needed below
@@ -197,7 +197,7 @@
         const matched = distance <= MATCH_RADIUS_MILES;
 
         redirect(buildFormUrl({
-          facility:  matched && facility ? facility.name + " (" + facility.accountId + ")" : "UNMATCHED",
+          facility:  matched && facility ? facility.accountId : "UNMATCHED",
           latitude:  latitude.toFixed(6),
           longitude: longitude.toFixed(6),
           city: "",
