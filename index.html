@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Driver Feedback</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --card: #1a2129;
+      --fg: #e8edf2;
+      --muted: #8b97a4;
+      --accent: #2f81f7;
+      --accent-press: #1f6fe0;
+      --border: #2a323c;
+      --error: #f0883e;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrap { width: 100%; max-width: 420px; text-align: center; }
+
+    /* Loading state */
+    .spinner {
+      width: 44px; height: 44px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      margin: 0 auto 24px;
+      animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) {
+      .spinner { animation-duration: 2s; }
+    }
+    h1 { font-size: 19px; font-weight: 600; margin-bottom: 8px; letter-spacing: -0.01em; }
+    p.sub { font-size: 14px; color: var(--muted); line-height: 1.5; }
+
+    /* Fallback form */
+    .fallback { display: none; text-align: left; }
+    .fallback.show { display: block; }
+    .fallback h1 { text-align: center; margin-bottom: 6px; }
+    .fallback .sub { text-align: center; margin-bottom: 24px; }
+    label { display: block; font-size: 13px; color: var(--muted); margin: 16px 0 6px; }
+    input, select {
+      width: 100%;
+      padding: 14px;
+      font-size: 16px; /* >=16px prevents iOS auto-zoom */
+      background: var(--card);
+      color: var(--fg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      appearance: none;
+    }
+    select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%238b97a4' d='M6 8L0 0h12z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 16px center; }
+    input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+    button {
+      width: 100%;
+      margin-top: 28px;
+      padding: 15px;
+      font-size: 16px; font-weight: 600;
+      color: #fff;
+      background: var(--accent);
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    button:active { background: var(--accent-press); }
+    button:disabled { opacity: 0.5; }
+    .note { font-size: 12px; color: var(--muted); margin-top: 16px; text-align: center; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+
+    <!-- LOADING / LOCATING STATE -->
+    <div id="locating">
+      <div class="spinner" aria-hidden="true"></div>
+      <h1>Opening your feedback form</h1>
+      <p class="sub">One moment while we get things ready.</p>
+    </div>
+
+    <!-- FALLBACK: location unavailable -->
+    <div id="fallback" class="fallback">
+      <h1>Almost there</h1>
+      <p class="sub">We couldn't detect your location automatically. Tell us where you are and we'll take you to the form.</p>
+
+      <label for="city">City</label>
+      <input id="city" type="text" autocomplete="address-level2" placeholder="e.g. Joliet" />
+
+      <label for="state">State</label>
+      <select id="state">
+        <option value="">Select a state</option>
+      </select>
+
+      <button id="goBtn" disabled>Continue to form</button>
+      <p class="note">Your feedback is shared with the facility you visited.</p>
+    </div>
+
+  </div>
+
+  <script>
+  /* ============================================================
+     CONFIG  —  edit these four things, nothing else
+     ============================================================ */
+
+  // 1. Your Microsoft Form base URL (everything before the parameters).
+  //    Get this from Forms: "Collect responses" -> copy link.
+  const FORM_BASE = "https://forms.cloud.microsoft/Pages/ResponsePage.aspx?id=JTTM5BFHxEytxgAG0hey_1hA2KfSNltBr4YjoDn_5_ZURUw3MVREWDRTRkxTNlM0NzgyQ0lZSUQwWi4u";
+
+  // 2. The prefill parameter names for each hidden field in your form.
+  //    To get these: in Forms, add short-answer questions for Facility,
+  //    Latitude, Longitude, City, State. Then "Collect responses" ->
+  //    "Get pre-filled link", fill dummy values, and copy the generated
+  //    URL. Each field shows up as &rXXXXXXXX=value. Paste the rXXXXXXXX
+  //    keys below.
+  const PARAM = {
+    facility:  "r310bf43b789b49fba89a04c6a47c539a",
+    latitude:  "rfd7e0cf06ef24afbb7b58da03e1142fc",
+    longitude: "rde1ac2a6a7bd43e5bceabca11cb6e7d5",
+    city:      "rac786c0e99b94f369b10e5e6646b84a3",
+    state:     "rf82ceb7e77624a078be59b3adf1fe146"
+  };
+
+  // 3. Your facilities. id is what you'll see in the response sheet.
+  //    Keep this list internal — drivers never see it.
+  const FACILITIES = [
+    { name: "myQ Enterprise Demo Site",         accountId: "12345",  lat: 43.226825, lon: -88.150642 },
+    { name: "Cheney Brothers - Port St. Lucie", accountId: "121234", lat: 27.213677, lon: -80.405498 },
+    { name: "Heartland Produce",                accountId: "155455", lat: 42.583497, lon: -87.934307 }
+    // ...add the rest
+  ];
+
+  // 4. Max distance (miles) a driver can be from a facility and still get
+  //    auto-matched. Beyond this we still send their coordinates but mark
+  //    the facility as "UNMATCHED" so you can review it.
+  const MATCH_RADIUS_MILES = 5;
+
+  /* ============================================================
+     LOGIC  —  no edits needed below
+     ============================================================ */
+
+  function haversineMiles(lat1, lon1, lat2, lon2) {
+    const R = 3958.8; // Earth radius, miles
+    const toRad = d => d * Math.PI / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat / 2) ** 2 +
+              Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+              Math.sin(dLon / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  function nearestFacility(lat, lon) {
+    let best = null;
+    let bestDist = Infinity;
+    for (const f of FACILITIES) {
+      const d = haversineMiles(lat, lon, f.lat, f.lon);
+      if (d < bestDist) { bestDist = d; best = f; }
+    }
+    return { facility: best, distance: bestDist };
+  }
+
+  function buildFormUrl(values) {
+    const parts = [];
+    for (const key in values) {
+      if (values[key] === "" || values[key] == null) continue;
+      const param = PARAM[key];
+      parts.push(encodeURIComponent(param) + "=" + encodeURIComponent(values[key]));
+    }
+    const sep = FORM_BASE.includes("?") ? "&" : "?";
+    return FORM_BASE + sep + parts.join("&");
+  }
+
+  function redirect(url) {
+    // replace() so the redirect page isn't left in back-button history
+    window.location.replace(url);
+  }
+
+  /* --- Try geolocation on load --- */
+  function tryGeolocation() {
+    if (!("geolocation" in navigator)) { showFallback(); return; }
+
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        const { latitude, longitude } = pos.coords;
+        const { facility, distance } = nearestFacility(latitude, longitude);
+        const matched = distance <= MATCH_RADIUS_MILES;
+
+        redirect(buildFormUrl({
+          facility:  matched && facility ? facility.name + " (" + facility.accountId + ")" : "UNMATCHED",
+          latitude:  latitude.toFixed(6),
+          longitude: longitude.toFixed(6),
+          city: "",
+          state: ""
+        }));
+      },
+      () => showFallback(),               // denied, timeout, or unavailable
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  }
+
+  /* --- Fallback form --- */
+  const STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID",
+    "IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE",
+    "NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN",
+    "TX","UT","VT","VA","WA","WV","WI","WY"];
+
+  function showFallback() {
+    document.getElementById("locating").style.display = "none";
+    const fb = document.getElementById("fallback");
+    fb.classList.add("show");
+
+    const stateSel = document.getElementById("state");
+    STATES.forEach(s => {
+      const o = document.createElement("option");
+      o.value = s; o.textContent = s;
+      stateSel.appendChild(o);
+    });
+
+    const city = document.getElementById("city");
+    const btn = document.getElementById("goBtn");
+
+    function validate() {
+      btn.disabled = !(city.value.trim() && stateSel.value);
+    }
+    city.addEventListener("input", validate);
+    stateSel.addEventListener("change", validate);
+
+    btn.addEventListener("click", () => {
+      redirect(buildFormUrl({
+        facility: "MANUAL",
+        latitude: "",
+        longitude: "",
+        city: city.value.trim(),
+        state: stateSel.value
+      }));
+    });
+  }
+
+  // Kick off
+  tryGeolocation();
+  </script>
+</body>
+</html>
